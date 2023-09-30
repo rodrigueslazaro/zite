@@ -17,6 +17,7 @@ if [ "$1" = "build" ]; then
   if [ -d "website" ]; then
       rm -r "website"
   fi
+
   mkdir -p website/imgs website/styles website/fonts
   # copy styles, images, and fonts from theme
   for dir in "imgs" "styles" "fonts"; do
@@ -75,7 +76,7 @@ elif [ "$1" = "add" ]; then
   NEWNAME="$3" # name of new md file
   NEWTITLE=$(sed -E 's/(^|[-_ ])([a-z])/\1\u\2/g; s/-/ /g' <<< $NEWNAME)
   
-  printf -- "---\ntitle:\"$($NEWTITLE)\"\ndate: $(date $DATEFORMAT)\n---\n\n Welcome to Zite, the simple static website generator!\nCheck out the documentation [on the project's github page](github.com/rodrigueslazaro/zite)\n" > content/$CATNAME/$NEWNAME.md
+  printf -- "---\ntitle: \"$NEWTITLE\"\ndate: $(date $DATEFORMAT)\n---\n\n" > content/$CATNAME/$NEWNAME.md
 
 fi
 
