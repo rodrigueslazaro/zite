@@ -1,5 +1,7 @@
 # Zite - láZaro's websITE Generator
 
+![zite-logo](zite-logo.png)
+
 This is a simple bash script I've put together to generate a static website
 using pandoc.
 
