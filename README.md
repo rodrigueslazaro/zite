@@ -66,6 +66,7 @@ content directory.
 
 The script needs the following directory structure:
 
+```bash
 .
 └─ my-website
    ├── content
@@ -73,6 +74,7 @@ The script needs the following directory structure:
    │       └── file.md
    └── themes
        └── theme
+```
 
 That is, a root directory for your website, called whatever you want, one
 '*content*' directory with at least one '*category*' and one md file with the
