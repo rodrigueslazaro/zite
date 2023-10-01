@@ -37,7 +37,11 @@ always inside of a category!
 
 To use images in your markdown files and have them rendered corretly create a
 content/category/imgs directory, and put all your images in there, referencing
-them inside of your markdown files like '![description](imgs/myimage.png)'.
+them inside of your markdown files like:
+
+```markdown
+![description](imgs/myimage.png)
+```
 
 To add new content yo your website use:
 
