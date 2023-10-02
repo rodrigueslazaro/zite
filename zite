@@ -7,10 +7,6 @@
 # 
 # Don't forget to set the theme and name variables!
 
-#THEME="lazite" # configure theme
-#NAME="Zite Website" # website name
-#DATEFORMAT="+%Y-%m-%d" # used when creating new articles
-
 read_config() {
   THEME=$(grep theme config.yaml | sed 's/.*"\(.*\)".*/\1/')
   NAME=$(grep name config.yaml | sed 's/.*"\(.*\)".*/\1/')
@@ -68,7 +64,11 @@ create_category_lists_and_article_html() {
       fi
     done
     category_md+="</ul>"
-    pandoc --template=themes/"$THEME"/templates/list-template.html --metadata title="$title" -o website/"$category".html <<< "$category_md"
+    if [ -e themes/"$2"/templates/"$category"-template.html ]; then
+      pandoc --template=themes/"$THEME"/templates/"$category"-template.html --metadata title="$title" -o website/"$category".html <<< "$category_md"
+    else
+      pandoc --template=themes/"$THEME"/templates/list-template.html --metadata title="$title" -o website/"$category".html <<< "$category_md"
+    fi
   done
 }
 
@@ -105,7 +105,7 @@ case $1 in
     reset_website
     categories_read=$(read_content_categories)
     copy_category_images "$categories_read"
-    create_category_lists_and_article_html "$categories_read"
+    create_category_lists_and_article_html "$categories_read" "$THEME"
     create_homepage "$categories_read" "$NAME"
     ;;
   new)
