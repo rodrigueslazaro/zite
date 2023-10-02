@@ -1,4 +1,6 @@
-# Zite - láZaro's websITE Generator
+# Zite
+
+Your actually simple static website generator.
 
 ![zite-logo](zite-logo.png)
 
@@ -15,10 +17,8 @@ you!
 
 ## How to use it
 
-Download the zite script from this repo, configure the variables in the top of
-the script, which defines the title of your website, the theme, and the date
-format for the YAML frontmatter. Then make it an executable (chmod +x zite) and
-put it in any directory in your path (like ~/.local/bin/).
+Download the zite script from this repo, make it an executable (chmod +x zite)
+and put it in any directory in your path (like ~/.local/bin/).
 
 Then run:
 
@@ -34,6 +34,9 @@ The zite command 'new' creates the file 'content/articles/intro.md'. The script
 needs at least one category and one file to work. Put whatever content you want
 in content/category. Don't put markdown files inside of content directly,
 always inside of a category!
+
+The command also creates a config.yaml file which defines the name of the theme,
+the website, and the date format used in metadata, change it to match your website.
 
 To use images in your markdown files and have them rendered corretly create a
 content/category/imgs directory, and put all your images in there, referencing
