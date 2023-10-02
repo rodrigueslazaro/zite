@@ -7,17 +7,22 @@
 # 
 # Don't forget to set the theme and name variables!
 
-THEME="lazite" # configure theme
-NAME="Zite Website" # website name
-DATEFORMAT="+%Y-%m-%d" # used when creating new articles
+#THEME="lazite" # configure theme
+#NAME="Zite Website" # website name
+#DATEFORMAT="+%Y-%m-%d" # used when creating new articles
 
-if [ "$1" = "build" ]; then
-  
+read_config() {
+  THEME=$(grep theme config.yaml | sed 's/.*"\(.*\)".*/\1/')
+  NAME=$(grep name config.yaml | sed 's/.*"\(.*\)".*/\1/')
+  DATEFORMAT=$(grep date config.yaml | sed 's/.*"\(.*\)".*/\1/')
+  printf "%s|%s|%s" "$THEME" "$NAME" "$DATEFORMAT"
+}
+
+reset_website() {
   # reset the website directory
   if [ -d "website" ]; then
       rm -r "website"
   fi
-
   mkdir -p website/imgs website/styles website/fonts
   # copy styles, images, and fonts from theme
   for dir in "imgs" "styles" "fonts"; do
@@ -25,58 +30,95 @@ if [ "$1" = "build" ]; then
       cp -r "themes/$THEME/$dir"/* "website/$dir"
     fi
   done
-  
-  # read content categories and create html files with pandoc
-  categories=($(ls content))
+}
+
+read_content_categories() {
+    local categories=()
+    for category_dir in content/*; do
+        if [ -d "$category_dir" ]; then
+            category_name=$(basename "$category_dir")
+            categories+=("$category_name")
+        fi
+    done
+    printf "%s|" "${categories[@]}"
+}
+
+copy_category_images() {
+  IFS=$'|' read -ra categories <<< "$1"
   for category in "${categories[@]}"; do
-    title=$(tr '[:lower:]' '[:upper:]' <<< "$category")
-    printf -- "---\ntitle: \"$title\"\n---\n\n" >> $category-temp.md
     if [ -d "content/$category/imgs" ]; then # if the imgs directory exists
       if [ -n "$(find "content/$category/imgs" -type f)" ]; then # and it's not empty
-        cp content/$category/imgs/* website/imgs
+        cp "content/$category/imgs/*" website/imgs
       fi
     fi
-    articles=($(ls -p content/$category/ | grep -v /))
-    for article in "${articles[@]}"; do
-      htmlname=$(basename $article | rev | cut -d"." -f2- | rev)
-      printf -- "- [$(grep title content/$category/$article | sed 's/.*"\(.*\)".*/\1/')]($htmlname.html)\n\n" >> $category-temp.md
-      sed -e 's/# /## /' content/$category/$article | pandoc --template=themes/$THEME/templates/page-template.html -o website/$htmlname.html
-    done
-    pandoc $category-temp.md --template=themes/$THEME/templates/list-template.html -o website/$category.html
-    rm $category-temp.md
   done
-  
-  # creates home page
-  printf -- "---\ntitle: \"$NAME\"\n---\n\n" >> home-temp.md
+}
+
+create_category_lists_and_article_html() {
+  IFS=$'|' read -ra categories <<< "$1"
   for category in "${categories[@]}"; do
     title=$(tr '[:lower:]' '[:upper:]' <<< "$category")
-    printf -- "- [$title]($category.html)\n" >> home-temp.md
+    category_md="---\ntitle: \"$title\"\n---\n\n"
+#    articles=("$(ls -p content/$category/*.md)")
+    for article in content/"$category"/*; do
+      htmlname=$(sed 's/.*\///;s/\.md$//' <<< "$article")
+      article_title=$(grep title content/"$category"/"$article" | sed 's/.*"\(.*\)".*/\1/')
+      category_md+="- [$article_title]($htmlname.html)\n\n"
+      sed -e 's/# /## /' content/"$category"/"$article" | pandoc --template=themes/"$THEME"/templates/page-template.html -o website/"$htmlname".html
+    done
+    pandoc --template=themes/"$THEME"/templates/list-template.html -o website/"$category".html <<< "$category_md"
   done
-  pandoc home-temp.md --template=themes/$THEME/templates/home-template.html -o website/index.html
-  rm home-temp.md
-  
-elif [ "$1" = "new" ]; then
+}
 
-  DIRNAME="$2" # directory name
+create_homepage() {
+  IFS=$'|' read -ra categories <<< "$1"
+  home_md="---\ntitle: \"$2\"\n---\n\n"
+  for category in "${categories[@]}"; do
+    title=$(tr '[:lower:]' '[:upper:]' <<< "$category")
+    home_md+="- [$title]($category.html)\n\n"
+  done
+  pandoc --template=themes/"$THEME"/templates/home-template.html -o website/index.html <<< "$home_md"
+}
 
+create_base_directory_structure() {
+  DIRNAME=$1
   if [ ! -d "$DIRNAME" ]; then
-    mkdir $DIRNAME $DIRNAME/content $DIRNAME/content/articles $DIRNAME/themes
+    mkdir "$DIRNAME" "$DIRNAME"/content "$DIRNAME"/content/articles "$DIRNAME"/themes
   fi
-  printf -- "---\ntitle:\"Welcome to Zite!\"\ndate: $(date $DATEFORMAT)\n---\n\n Welcome to Zite, the simple static website generator!\nCheck out the documentation [on the project's github page](github.com/rodrigueslazaro/zite)\n" > $DIRNAME/content/articles/intro.md
+}
 
-  printf "Congratulation, you've just created a Zite website!\n"
+create_required_files() {
+  DATEFORMAT="+%Y-%m-%d"
+  DIRNAME="$1"
+  printf "---\ntitle: \"Welcome to Zite!\"\ndate: %s\n---\n\n Welcome to Zite, the simple static website generator!\n\nCheck out the documentation [on the project's github page](github.com/rodrigueslazaro/zite)\n" "$(date "$DATEFORMAT")" > "$DIRNAME"/content/articles/intro.md
+  printf 'theme: "lazite"\nname: "Zite website"\ndate: "%s"' "$DATEFORMAT" > "$DIRNAME"/config.yaml
+  printf "Congratulations, you've just created a Zite website!\n"
+}
 
-  if [ -z "$(ls -A $DIRNAME/themes)" ]; then
-    printf "It appears you do not have a theme installed, please get the example theme from https://github.com/rodrigueslazaro/lazite-theme and place it inside the themes directory!\n"
-  fi
-
-elif [ "$1" = "add" ]; then
-
-  CATNAME="$2" # category name
-  NEWNAME="$3" # name of new md file
-  NEWTITLE=$(sed -E 's/(^|[-_ ])([a-z])/\1\u\2/g; s/-/ /g' <<< $NEWNAME)
-  
-  printf -- "---\ntitle: \"$NEWTITLE\"\ndate: $(date $DATEFORMAT)\n---\n\n" > content/$CATNAME/$NEWNAME.md
-
-fi
-
+case $1 in
+  build)
+    config_variables=$(read_config)
+    IFS='|' read -r THEME NAME DATEFORMAT <<< "$config_variables"
+    reset_website
+    categories_read=$(read_content_categories)
+    copy_category_images "$categories_read"
+    create_category_lists_and_article_html "$categories_read"
+    create_homepage "$categories_read" "$NAME"
+    ;;
+  new)
+    DIRNAME="$2"
+    create_base_directory_structure "$DIRNAME"
+    create_required_files "$DIRNAME"
+    if [ -z "$(ls -A "$DIRNAME"/themes)" ]; then
+      printf "It appears you do not have a theme installed, please get the example theme from https://github.com/rodrigueslazaro/lazite-theme and place it inside the themes directory!\n"
+    fi
+    ;;
+  add)
+    CATNAME="$2" # category name
+    NEWNAME="$3" # name of new md file
+    NEWTITLE=$(sed -E 's/(^|[-_ ])([a-z])/\1\u\2/g; s/-/ /g' <<< "$NEWNAME")
+    printf "---\ntitle: \"%s\"\ndate: %s\n---\n\n" "$NEWTITLE" "$(date "$DATEFORMAT")" > content/"$CATNAME"/"$NEWNAME".md
+    ;;
+  *)
+    printf "ERROR: Unknown command, please refer to the documentaion for correct usage."
+esac
