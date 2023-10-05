@@ -55,11 +55,12 @@ read_content_categories() {
 }
 
 copy_category_images() {
+  BUILDPATH="$2"
   IFS=$'|' read -ra categories <<< "$1"
   for category in "${categories[@]}"; do
     if [ -d "content/$category/imgs" ]; then # if the imgs directory exists
       if [ -n "$(find "content/$category/imgs" -type f)" ]; then # and it's not empty
-        cp "content/$category/imgs/"* website/imgs/
+        cp "content/$category/imgs/"* "$BUILDPATH"/imgs/
       fi
     fi
   done
@@ -68,6 +69,7 @@ copy_category_images() {
 create_category_lists_and_article_html() {
   IFS=$'|' read -ra categories <<< "$1"
   THEME="$2"
+  BUILDPATH="$3"
   for category in "${categories[@]}"; do
     title=$(tr '[:lower:]' '[:upper:]' <<< "$category")
     category_md="<ul>"
@@ -77,35 +79,36 @@ create_category_lists_and_article_html() {
         article_title=$(grep title content/"$category"/"$article".md | sed 's/.*"\(.*\)".*/\1/')
         category_md+="<li><a href=\"$article.html\">$article_title</a></li>\n"
         if [ -f "themes/$THEME/templates/page-template.html" ]; then
-          sed -e 's/# /## /' content/"$category"/"$article".md | pandoc --template=themes/"$THEME"/templates/page-template.html -o website/"$article".html
+          sed -e 's/# /## /' content/"$category"/"$article".md | pandoc --template=themes/"$THEME"/templates/page-template.html -o "$BUILDPATH"/"$article".html
         else 
-          sed -e 's/# /## /' content/"$category"/"$article".md | pandoc -o website/"$article".html
+          sed -e 's/# /## /' content/"$category"/"$article".md | pandoc -o "$BUILDPATH"/"$article".html
         fi
       fi
     done
     category_md+="</ul>"
     if [ -e themes/"$2"/templates/"$category"-template.html ]; then
-      pandoc --template=themes/"$THEME"/templates/"$category"-template.html --metadata title="$title" -o website/"$category".html <<< "$category_md"
+      pandoc --template=themes/"$THEME"/templates/"$category"-template.html --metadata title="$title" -o "$BUILDPATH"/"$category".html <<< "$category_md"
     elif [ -f "themes/$THEME/templates/list-template.html" ]; then
-      pandoc --template=themes/"$THEME"/templates/list-template.html --metadata title="$title" -o website/"$category".html <<< "$category_md"
+      pandoc --template=themes/"$THEME"/templates/list-template.html --metadata title="$title" -o "$BUILDPATH"/"$category".html <<< "$category_md"
     else 
-      pandoc --metadata title="$title" -o website/"$category".html <<< "$category_md"
+      pandoc --metadata title="$title" -o "$BUILDPATH"/"$category".html <<< "$category_md"
     fi
   done
 }
 
 create_homepage() {
   IFS=$'|' read -ra categories <<< "$1"
-  THEME=$3
+  THEME="$3"
+  BUILDPATH="$4"
   home_md+="</ul>"
   for category in "${categories[@]}"; do
     title=$(tr '[:lower:]' '[:upper:]' <<< "$category")
     home_md+="<li><a href=\"$category.html\">$title</a></li>\n"
   done
   if [ -f themes/"$THEME"/templates/home-template.html ]; then
-    pandoc --template=themes/"$THEME"/templates/home-template.html --metadata title="$2" -o website/index.html <<< "$home_md"
+    pandoc --template=themes/"$THEME"/templates/home-template.html --metadata title="$2" -o "$BUILDPATH"/index.html <<< "$home_md"
   else 
-    pandoc -o website/index.html <<< "$home_md"
+    pandoc -o "$BUILDPATH"/index.html <<< "$home_md"
   fi
 }
 
@@ -119,7 +122,7 @@ create_base_directory_structure() {
 create_required_files() {
   DIRNAME="$1"
   DATEFORMAT="$2"
-  printf -- "---\ntitle: \"Welcome to Zite!\"\ndate: %s\n---\n\nWelcome to Zite, the simple static website generator!\n\nCheck out the documentation [on the project's github page](github.com/rodrigueslazaro/zite)\n" "$(date "$DATEFORMAT")" > "$DIRNAME"/content/articles/intro.md
+  printf -- "---\ntitle: \"Welcome to Zite!\"\ndate: %s\n---\n\nWelcome to Zite, the simple static website generator!\n\nCheck out the documentation [on the project's github page](https://github.com/rodrigueslazaro/zite)\n" "$(date "$DATEFORMAT")" > "$DIRNAME"/content/articles/intro.md
   printf 'theme: "lazite"\nname: "Zite Website"\nbuild: "website"\ndate: "+%%Y-%%m-%%d"' > "$DIRNAME"/config.yaml
   printf "Congratulations, you've just created a Zite website!\n"
 }
@@ -129,9 +132,9 @@ case $1 in
     IFS='|' read -r THEME NAME BUILDPATH <<< "$(read_config "tnb")"
     reset_build_directory "$BUILDPATH"
     categories_read=$(read_content_categories)
-    copy_category_images "$categories_read"
-    create_category_lists_and_article_html "$categories_read" "$THEME"
-    create_homepage "$categories_read" "$NAME" "$THEME"
+    copy_category_images "$categories_read" "$BUILDPATH"
+    create_category_lists_and_article_html "$categories_read" "$THEME" "$BUILDPATH"
+    create_homepage "$categories_read" "$NAME" "$THEME" "$BUILDPATH"
     ;;
   new)
     DIRNAME="$2"
@@ -148,8 +151,8 @@ case $1 in
     ;;
   add)
     IFS='|' read -r DATEFORMAT <<< "$(read_config "d")"
-    CATNAME="$2" # category name
-    NEWNAME="$3" # name of new md file
+    CATNAME="$2"
+    NEWNAME="$3"
     NEWTITLE=$(sed -E 's/(^|[-_ ])([a-z])/\1\u\2/g; s/-/ /g' <<< "$NEWNAME")
     printf -- "---\ntitle: \"%s\"\ndate: %s\n---\n\n" "$NEWTITLE" "$(date "$DATEFORMAT")" > content/"$CATNAME"/"$NEWNAME".md
     ;;
