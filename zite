@@ -105,7 +105,7 @@ create_homepage() {
   if [ -f themes/"$THEME"/templates/home-template.html ]; then
     pandoc --template=themes/"$THEME"/templates/home-template.html --metadata title="$2" -o website/index.html <<< "$home_md"
   else 
-    pandoc --metadata title="$2" -o website/index.html <<< "$home_md"
+    pandoc -o website/index.html <<< "$home_md"
   fi
 }
 

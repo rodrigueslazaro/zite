@@ -12,94 +12,91 @@ I've tried using other static website generators like
 while I do think they're great, I've always felt like they were overkill for
 the websites I wanted to use it for. So while of course this does not have all
 the features of these other tools, if all you need is [something like
-this](https://rodrigueslazaro.github.io/) then this may just be the tool fo
+this](https://rodrigueslazaro.github.io/) then this may just be the tool for
 you!
 
-## How to use it
+## Installation
 
-Download the zite script from this repo, make it an executable (chmod +x zite)
-and put it in any directory in your path (like ~/.local/bin/).
+Just download or copy the zite script from this repo, make it an executable
+(chmod +x zite) and put it in any directory in your path (like ~/.local/bin/).
 
-Then run:
+## Concepts
 
-```bash 
-zite new my-cool-website 
+This script is very simple. It reads the contents of a "content" directory,
+where you have one or more subdirectories with categories and markdown files in
+each category and creates a website with three kinds of pages:
+
+- A homepage, which has links to your category listings.
+- Listing pages, which have links to your articles.
+- Article pages, which have the content in your markdown files.
+
+## Usage
+
+### Creating a Website
+
+A new website can be created with:
+
+```bash
+zite new my-website [theme]
 ```
 
-To create your new website. Then get a theme, like the example in
-[lazite-theme](https://github.com/rodrigueslazaro/lazite-theme) and put it
-inside of themes. The script will not work without a theme!
+That is, running the zite script with the new argument passing your website
+name, and optionally a theme. At this point the only theme the script knows
+about is lazite, a very basic theme I've put together as an example. If you
+want to create the website template with the theme, just run:
 
-The zite command 'new' creates the file 'content/articles/intro.md'. The script
-needs at least one category and one file to work. Put whatever content you want
-in content/category. Don't put markdown files inside of content directly,
-always inside of a category!
-
-The command also creates a config.yaml file which defines the name of the theme,
-the website, and the date format used in metadata, change it to match your website.
-
-To use images in your markdown files and have them rendered corretly create a
-content/category/imgs directory, and put all your images in there, referencing
-them inside of your markdown files like:
-
-```markdown
-![description](imgs/myimage.png)
+```bash
+zite new my-website lazite
 ```
 
-To add new content yo your website use:
+Otherwise check out the github repo
+[lazite-theme](https://github.com/rodrigueslazaro/lazite-theme) to see an
+example structure of a theme.
+
+### Building the Website
+
+Once you have the website directory, cd into it and run:
+
+```bash
+zite build
+```
+
+Which will use pandoc with theme templates (if available) to create your website
+and put it inside of a new directory called "website", by default.
+
+### Adding new content
+
+Although you can just create new mardown files inside of your content directory,
+adding the minimum yaml metadata yourselve, the scritpt also comes with an "add"
+command which adds a new markdown file with the current date and a title inside
+of a category. To run, just do:
 
 ```bash 
 zite add category cool-new-article
 ```
 
-Which will create a cool-new-article.md file in whatever category you want with
-the required metadata.
+This will create a new file named cool-new-article.md inside of content/category,
+where category is any category name you want.
 
-After you have some content, or just with the content of 'zite new' use:
+### Configuration options
 
-```bash 
-zite build
+The "new" command creates your website directory with an example config.yaml file
+containing the four configuration options with the default values used by the
+script.
+
+- theme: this tells the script which theme you want to use, it must be the name
+of a subdirectory of themes.
+- name: the name of your website, which will show up in the homepage.
+- build: the target directory of the build command, where your static content
+will be generated with pandoc.
+- date: the date format used to add a creation date in your markdown file
+matadata.
+
+### Adding images to your markdown content
+
+To add images to your markdown content create an "imgs" subdirectory inside of
+your category, reference the images like:
+
+```markdown
+![description](imgs/myimage.png)
 ```
-
-To create the directory website and render all your content in there. Be warned
-that the directory is completely erased and create again when this commands runs,
-so don't cange anything directly inside of website that you intend to keep.
-
-## How it works
-
-The script has three parameters: **new**, for creating a new website, **add**,
-for creating a new page, and **build**, for creating the website based on a
-content directory.
-
-The script needs the following directory structure:
-
-```bash
-.
-└─ my-website
-   ├── content
-   │   └── category
-   │       └── file.md
-   └── themes
-       └── theme
-```
-
-That is, a root directory for your website, called whatever you want, one
-'*content*' directory with at least one '*category*' and one md file with the
-correct yaml metadata, and a '*themes*' directory with at least one theme, see
-the example [lazite-theme](https://github.com/rodrigueslazaro/lazite-theme).
-
-The script reads the content of, well, '*content*', and converts them to html
-using pandoc with custom templates, which are inside of your theme/templates.
-
-It also generates listing pages for each category, that is, pages with a list
-of articles in that category, and a homepage based on your
-theme/templates/home-template.html, which contains a listing of your
-categories.
-
-It copies all the content, including images, css, and custom fonts, to a new
-directory it creates called website. That's it, your website is ready!
-
-It does not support tags, taxonomies, or any other bells and whistles. It's
-just categories. I may implement it in the future if I need it, but I believe
-just categories will be enough organisation for a while.
-
