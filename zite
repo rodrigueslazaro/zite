@@ -8,22 +8,37 @@
 # Don't forget to set the theme and name variables!
 
 read_config() {
-  THEME=$(grep theme config.yaml | sed 's/.*"\(.*\)".*/\1/')
-  NAME=$(grep name config.yaml | sed 's/.*"\(.*\)".*/\1/')
-  DATEFORMAT=$(grep date config.yaml | sed 's/.*"\(.*\)".*/\1/')
-  printf "%s|%s|%s" "$THEME" "$NAME" "$DATEFORMAT"
+  data=""
+  options=$1
+  if [[ "$options" == *t* ]]; then
+    THEME=$(sed 's/.*"\(.*\)".*/\1/' <<< "$(grep theme config.yaml 2>/dev/null || echo "")")
+    data+="$THEME|"
+  fi
+  if [[ "$options" == *n* ]]; then
+    NAME=$(sed 's/.*"\(.*\)".*/\1/' <<< "$(grep name config.yaml 2>/dev/null || echo "Zite Website")")
+    data+="$NAME|"
+  fi
+  if [[ "$options" == *b* ]]; then
+    BUILDPATH=$(sed 's/.*"\(.*\)".*/\1/' <<< "$(grep build config.yaml 2>/dev/null || echo "website")")
+    data+="$BUILDPATH|"
+  fi
+  if [[ "$options" == *d* ]]; then
+    DATEFORMAT=$(sed 's/.*"\(.*\)".*/\1/' <<< "$(grep date config.yaml 2>/dev/null || echo "+%Y-%m-%d")")
+    data+="$DATEFORMAT|"
+  fi
+    printf "%s" "${data%|*}"
 }
 
-reset_website() {
-  # reset the website directory
-  if [ -d "website" ]; then
-      rm -r "website"
+reset_build_directory() {
+  BUILDPATH=$1
+  if [ -d "$BUILDPATH" ]; then
+      rm -r "$BUILDPATH"
   fi
-  mkdir -p website/imgs website/styles website/fonts
-  # copy styles, images, and fonts from theme
+  mkdir "$BUILDPATH"
+  mkdir -p "$BUILDPATH"/imgs "$BUILDPATH"/styles "$BUILDPATH"/fonts
   for dir in "imgs" "styles" "fonts"; do
     if [ -d "themes/$THEME/$dir" ]; then
-      cp -r "themes/$THEME/$dir"/* "website/$dir"
+      cp -r "themes/$THEME/$dir"/* "$BUILDPATH/$dir"
     fi
   done
 }
@@ -60,27 +75,37 @@ create_category_lists_and_article_html() {
         article=$(sed 's/.*\///;s/\.md$//' <<< "$article")
         article_title=$(grep title content/"$category"/"$article".md | sed 's/.*"\(.*\)".*/\1/')
         category_md+="<li><a href=\"$article.html\">$article_title</a></li>\n"
-        sed -e 's/# /## /' content/"$category"/"$article".md | pandoc --template=themes/"$THEME"/templates/page-template.html -o website/"$article".html
+        if [ -f "$THEME/templates/page-template.html" ]; then
+          sed -e 's/# /## /' content/"$category"/"$article".md | pandoc --template=themes/"$THEME"/templates/page-template.html -o website/"$article".html
+        else 
+          sed -e 's/# /## /' content/"$category"/"$article".md | pandoc -o website/"$article".html
+        fi
       fi
     done
     category_md+="</ul>"
     if [ -e themes/"$2"/templates/"$category"-template.html ]; then
       pandoc --template=themes/"$THEME"/templates/"$category"-template.html --metadata title="$title" -o website/"$category".html <<< "$category_md"
-    else
+    elif [ -f "$THEME/templates/list-template.html" ]; then
       pandoc --template=themes/"$THEME"/templates/list-template.html --metadata title="$title" -o website/"$category".html <<< "$category_md"
+    else 
+      pandoc --metadata title="$title" -o website/"$category".html <<< "$category_md"
     fi
   done
 }
 
 create_homepage() {
   IFS=$'|' read -ra categories <<< "$1"
-  home_md="<ul>\n"
+  THEME=$3
+  home_md+="</ul>"
   for category in "${categories[@]}"; do
     title=$(tr '[:lower:]' '[:upper:]' <<< "$category")
     home_md+="<li><a href=\"$category.html\">$title</a></li>\n"
   done
-  home_md+="</ul>"
-  pandoc --template=themes/"$THEME"/templates/home-template.html --metadata title="$2" -o website/index.html <<< "$home_md"
+  if [ -f "$THEME"/templates/home-template.html ]; then
+    pandoc --template=themes/"$THEME"/templates/home-template.html --metadata title="$2" -o website/index.html <<< "$home_md"
+  else 
+    pandoc --metadata title="$2" -o website/index.html <<< "$home_md"
+  fi
 }
 
 create_base_directory_structure() {
@@ -91,22 +116,20 @@ create_base_directory_structure() {
 }
 
 create_required_files() {
-  DATEFORMAT="+%Y-%m-%d"
   DIRNAME="$1"
   printf -- "---\ntitle: \"Welcome to Zite!\"\ndate: %s\n---\n\nWelcome to Zite, the simple static website generator!\n\nCheck out the documentation [on the project's github page](github.com/rodrigueslazaro/zite)\n" "$(date "$DATEFORMAT")" > "$DIRNAME"/content/articles/intro.md
-  printf 'theme: "lazite"\nname: "Zite Website"\ndate: "%s"' "$DATEFORMAT" > "$DIRNAME"/config.yaml
+  printf 'theme: "lazite"\nname: "Zite Website"\nbuild:"website"\ndate: "+%%Y-%%m-%%d"' > "$DIRNAME"/config.yaml
   printf "Congratulations, you've just created a Zite website!\n"
 }
 
 case $1 in
   build)
-    config_variables=$(read_config)
-    IFS='|' read -r THEME NAME DATEFORMAT <<< "$config_variables"
-    reset_website
+    IFS='|' read -r THEME NAME BUILDPATH <<< "$(read_config "tnb")"
+    reset_build_directory "$BUILDPATH"
     categories_read=$(read_content_categories)
     copy_category_images "$categories_read"
     create_category_lists_and_article_html "$categories_read" "$THEME"
-    create_homepage "$categories_read" "$NAME"
+    create_homepage "$categories_read" "$NAME" "$THEME"
     ;;
   new)
     DIRNAME="$2"
@@ -117,13 +140,12 @@ case $1 in
     fi
     ;;
   add)
-    config_variables=$(read_config)
-    IFS='|' read -r THEME NAME DATEFORMAT <<< "$config_variables"
+    IFS='|' read -r DATEFORMAT <<< "$(read_config "d")"
     CATNAME="$2" # category name
     NEWNAME="$3" # name of new md file
     NEWTITLE=$(sed -E 's/(^|[-_ ])([a-z])/\1\u\2/g; s/-/ /g' <<< "$NEWNAME")
     printf -- "---\ntitle: \"%s\"\ndate: %s\n---\n\n" "$NEWTITLE" "$(date "$DATEFORMAT")" > content/"$CATNAME"/"$NEWNAME".md
     ;;
   *)
-    printf "ERROR: Unknown command, please refer to the documentaion for correct usage."
+    printf "ERROR: Unknown command, please refer to the documentaion for correct usage.\n"
 esac
