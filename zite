@@ -35,9 +35,9 @@ reset_build_directory() {
       rm -r "$BUILDPATH"
   fi
   mkdir "$BUILDPATH"
-  mkdir -p "$BUILDPATH"/imgs "$BUILDPATH"/styles "$BUILDPATH"/fonts
   for dir in "imgs" "styles" "fonts"; do
     if [ -d "themes/$THEME/$dir" ]; then
+      mkdir -p "$BUILDPATH/$dir"
       cp -r "themes/$THEME/$dir"/* "$BUILDPATH/$dir"
     fi
   done
@@ -67,6 +67,7 @@ copy_category_images() {
 
 create_category_lists_and_article_html() {
   IFS=$'|' read -ra categories <<< "$1"
+  THEME="$2"
   for category in "${categories[@]}"; do
     title=$(tr '[:lower:]' '[:upper:]' <<< "$category")
     category_md="<ul>"
@@ -75,7 +76,7 @@ create_category_lists_and_article_html() {
         article=$(sed 's/.*\///;s/\.md$//' <<< "$article")
         article_title=$(grep title content/"$category"/"$article".md | sed 's/.*"\(.*\)".*/\1/')
         category_md+="<li><a href=\"$article.html\">$article_title</a></li>\n"
-        if [ -f "$THEME/templates/page-template.html" ]; then
+        if [ -f "themes/$THEME/templates/page-template.html" ]; then
           sed -e 's/# /## /' content/"$category"/"$article".md | pandoc --template=themes/"$THEME"/templates/page-template.html -o website/"$article".html
         else 
           sed -e 's/# /## /' content/"$category"/"$article".md | pandoc -o website/"$article".html
@@ -85,7 +86,7 @@ create_category_lists_and_article_html() {
     category_md+="</ul>"
     if [ -e themes/"$2"/templates/"$category"-template.html ]; then
       pandoc --template=themes/"$THEME"/templates/"$category"-template.html --metadata title="$title" -o website/"$category".html <<< "$category_md"
-    elif [ -f "$THEME/templates/list-template.html" ]; then
+    elif [ -f "themes/$THEME/templates/list-template.html" ]; then
       pandoc --template=themes/"$THEME"/templates/list-template.html --metadata title="$title" -o website/"$category".html <<< "$category_md"
     else 
       pandoc --metadata title="$title" -o website/"$category".html <<< "$category_md"
@@ -101,7 +102,7 @@ create_homepage() {
     title=$(tr '[:lower:]' '[:upper:]' <<< "$category")
     home_md+="<li><a href=\"$category.html\">$title</a></li>\n"
   done
-  if [ -f "$THEME"/templates/home-template.html ]; then
+  if [ -f themes/"$THEME"/templates/home-template.html ]; then
     pandoc --template=themes/"$THEME"/templates/home-template.html --metadata title="$2" -o website/index.html <<< "$home_md"
   else 
     pandoc --metadata title="$2" -o website/index.html <<< "$home_md"
@@ -117,8 +118,9 @@ create_base_directory_structure() {
 
 create_required_files() {
   DIRNAME="$1"
+  DATEFORMAT="$2"
   printf -- "---\ntitle: \"Welcome to Zite!\"\ndate: %s\n---\n\nWelcome to Zite, the simple static website generator!\n\nCheck out the documentation [on the project's github page](github.com/rodrigueslazaro/zite)\n" "$(date "$DATEFORMAT")" > "$DIRNAME"/content/articles/intro.md
-  printf 'theme: "lazite"\nname: "Zite Website"\nbuild:"website"\ndate: "+%%Y-%%m-%%d"' > "$DIRNAME"/config.yaml
+  printf 'theme: "lazite"\nname: "Zite Website"\nbuild: "website"\ndate: "+%%Y-%%m-%%d"' > "$DIRNAME"/config.yaml
   printf "Congratulations, you've just created a Zite website!\n"
 }
 
@@ -133,11 +135,16 @@ case $1 in
     ;;
   new)
     DIRNAME="$2"
+    IFS='|' read -r DATEFORMAT <<< "$(read_config "d")"
     create_base_directory_structure "$DIRNAME"
-    create_required_files "$DIRNAME"
-    if [ -z "$(ls -A "$DIRNAME"/themes)" ]; then
-      printf "It appears you do not have a theme installed, please get the example theme from https://github.com/rodrigueslazaro/lazite-theme and place it inside the themes directory!\n"
-    fi
+    create_required_files "$DIRNAME" "$DATEFORMAT"
+    case $3 in
+      lazite)
+        git clone https://github.com/rodrigueslazaro/lazite-theme.git "$DIRNAME"/themes/lazite
+      ;;
+      *)
+      printf "Decided to craete your own theme from scratch? Great! Take a look at the example here: https://github.com/rodrigueslazaro/lazite-theme\n"
+    esac
     ;;
   add)
     IFS='|' read -r DATEFORMAT <<< "$(read_config "d")"
